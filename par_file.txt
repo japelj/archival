@@ -1,0 +1,44 @@
+#
+# This is the optional parameter file for running the script.
+# Only the values of the parameters following the semicolon are 
+# to be changed, please leave the outline of the file intact. 
+#
+# Radius [in arcsec] in which the know objects are searched 
+# for in Simbad
+#
+PAR1:20
+#
+# Radius [in arcsec] in which the preexisting transients are 
+# searched for in TNS server
+#
+PAR2:20
+#
+# Start date for seraching in TNS server
+#
+PAR3:2018-09-01
+#
+# Radius [in arcmin] in which to search for potential minor planets
+#
+PAR4:5
+#
+# Limiting V magnitude of minor planets
+#
+PAR5:24.0
+#
+# radius [in arcsec] in which potential host galaxies are searched
+#for in GLADE, if luminosity distance unknown
+#
+PAR6:15
+#
+# Upper limit for the physical offset of the source and a galaxy
+# in GLADE, if luminosity distance known [in kpc]
+#
+PAR7:100
+#
+# The name of the output html summary file
+#
+PAR8:summary.html
+#
+# The name of the output folder
+#
+PAR9:output
