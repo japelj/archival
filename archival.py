@@ -425,7 +425,6 @@ Query the GLADE catalog directly from Vizier
 def glade(name,ra,dec,fol,radG,ld,offG):
 	
 	ra1,dec1=transCoord(ra,dec)
-	red1,ang=redshift(ld)
 	#
 	# luminosity distance is not provided
 	#
@@ -481,6 +480,7 @@ def glade(name,ra,dec,fol,radG,ld,offG):
 	# luminosity distance is provided
  	#
 	else:
+		red1,ang=redshift(ld)
 		print('\t... Luminosity distance:',str(ld[0]),'+-',str(ld[1]))
 		#
 		# compute the approximate region assuming a physical offset
@@ -943,6 +943,7 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol):
 						else:
 							nn=len(gla[i]["sname"])
 							text(str(nn)+' galaxies were found within '+str(parin[5])+' arcsec radius.')
+							doc.asis('</br>')
 							for ii in range(nn):
 								doc.asis(gla[i]["sname"][ii]+'&nbsp;&nbsp;&nbsp;&nbsp;'+str(round(gla[i]["pars"][ii][-1],2))+'  arcsec from the candidate,&nbsp;&nbsp;&nbsp;&nbsp; M_B='+str(round(gla[i]["pars"][ii][5]))+',&nbsp;&nbsp;&nbsp;&nbsp; z='+str(round(gla[i]["pars"][ii][3]))+',&nbsp;&nbsp;&nbsp;&nbsp; lumd='+str(round(gla[i]["pars"][ii][2],2))+' Mpc (')
 								with tag('a', href="http://simbad.u-strasbg.fr/simbad/sim-id?Ident="+gla[i]["sname"][ii]+"&NbIdent=1&Radius=2&Radius.unit=arcmin&submit=submit+id", target="_blank"):
