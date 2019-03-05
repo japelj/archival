@@ -1128,7 +1128,7 @@ def main():
 	else:
 		rad=20 # [arcsec] radius in which known objects are searched for in Simbad
 		radW=20 # [arcsec] radius in which preexisting transients are searched for in TNS server
-		datestart='2010-01-01' # start date for searching in TNS server
+		datestart='2001-01-01' # start date for searching in TNS server
 		radM=5 # [arcmin] radius in which to search for potential minor planets
 		magM=24.0 # limiting V magnitude of minor planets
 		radG=15 # [arcsec] radius in which potential host galaxies are searched for in GLADE, if lumd unknown

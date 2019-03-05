@@ -15,7 +15,7 @@ PAR2:20
 #
 # Start date for seraching in TNS server
 #
-PAR3:2010-01-01
+PAR3:2001-01-01
 #
 # Radius [in arcmin] in which to search for potential minor planets
 #
