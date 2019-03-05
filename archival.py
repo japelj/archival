@@ -25,6 +25,9 @@ date is necessary for the search of coincident Solar system objects.
 -d: luminosity distance and error in Mpc (eg. -d 80 20)
 
 Updates:
+05. 02. 2019
+		- fix several bugs, TNS parsing
+
 11. 01. 2019
 		- DSS, terminal output
 
@@ -38,7 +41,7 @@ Updates:
 from optparse import OptionParser
 import datetime, sys
 import urllib.request
-import shutil, os, warnings
+import shutil, os, warnings, re
 import pandas as pd
 from astroquery.simbad import Simbad
 from astroquery.vizier import Vizier
@@ -349,29 +352,55 @@ def weizmann(name,ra,dec,fol,rad,datestart):
 		print('\t... Search radius:',rad,' arcsec')
 		print('\t... Start date:',datestart)
 		
-		try:
-			tables = pd.read_html(link)
-			tables=tables[0]
-			nn=len(tables)
+		#a silly piece of code: do this because the table is not easily parsable :(
+		fp = urllib.request.urlopen(link)
+		mybytes = fp.read()
+
+		mystr = mybytes.decode("utf8")
+		fp.close()
+		pos=mystr.find('class=\"count rsults\"')
+		if pos>0:
 			
-			nnn=0
-			tabb={"sname":[],"sra":[],"sdec":[],"sdist":[]}
-			for i in range(nn):
-				if tables["Name"][i][:2] == "AT":
-					ra1,dec1=transCoord(ra,dec)
-					raS,decS=transCoord(tables["RA"][i],tables["DEC"][i])
-					c1=coord.SkyCoord(ra1,dec1,unit='deg')
-					c2=coord.SkyCoord(raS,decS,unit='deg')
-					sep=c1.separation(c2)
-					
-					tabb["sname"].append(tables["Name"][i])
-					tabb["sra"].append(tables["RA"][i])
-					tabb["sdec"].append(tables["DEC"][i])
-					tabb["sdist"].append(sep.arcsecond)
-			print('\t... Number of sources:',str(nn))
-		except:
+			pos=int(mystr.find('out of <em class="placeholder">') + len('out of <em class="placeholder">'))
+			mystr1=mystr[pos:]
+			pos=mystr1.find('<')
+			numobj=int(mystr1[:pos])
+		
+			print('\t... Number of sources:',str(numobj))
+			
+			#search for each event by class="cell-name"
+			
+			tabb={"sname":[],"sra":[],"sdec":[],"sdist":[],"slink":[]}
+			
+			iii=-1
+			for m in re.finditer('class=\"cell-name\">',mystr):
+				iii += 1
+				if iii==0:	#the first occurrence is skipped
+					continue 
+				mystr1=mystr[m.end()+9:]
+				lin=mystr1[:mystr1.find('\"')]
+				nam=mystr1[mystr1.find('\"')+2:mystr1.find('</a>')]
+				mystr2=mystr1[mystr1.find('class=\"cell-ra\">')+len('class=\"cell-ra\">'):]
+				raS=mystr2[:mystr2.find('</td>')]
+				mystr3=mystr2[mystr2.find('class=\"cell-decl\">')+len('class=\"cell-decl\">'):]
+				decS=mystr3[:mystr3.find('</td>')]
+				
+				tabb["sname"].append(nam)
+				tabb["sra"].append(raS)
+				tabb["sdec"].append(decS)
+				
+				ra1,dec1=transCoord(ra,dec)
+				raS,decS=transCoord(raS,decS)
+				c1=coord.SkyCoord(ra1,dec1,unit='deg')
+				c2=coord.SkyCoord(raS,decS,unit='deg')
+				sep=c1.separation(c2)
+				
+				tabb["sdist"].append(sep.arcsecond)
+				tabb["slink"].append(lin)
+		
+		else:
+			tabb={"sname":[],"sra":[],"sdec":[],"sdist":[],"slink":[]}
 			print('\t... Number of sources: 0')
-			tabb={"sname":[],"sra":[],"sdec":[],"sdist":[]}
 
 		return tabb
 
@@ -589,7 +618,7 @@ def panscut(name,ra,dec,fol):
 		fhe["CRPIX2"]=fhe["CRPIX2"] - y1
 		
 		fim[np.isnan(fim)] = 0.0
-		transform = AsinhStretch() + PercentileInterval(99.7)
+		transform = AsinhStretch() + PercentileInterval(99.9)
 		bfim = transform(fim)
 		
 		with warnings.catch_warnings():	#because there are deprecated keywords in the header, no need to write it out
@@ -609,7 +638,7 @@ def panscut(name,ra,dec,fol):
 		fig1.add_patch(c)
 		txta=fig.text(0.14,0.8,name,fontsize=23,color='yellow')
 		txta.set_path_effects([PathEffects.withStroke(linewidth=2, foreground='k')])
-		txtb=fig.text(0.36,0.8,'Panstarrs',fontsize=23,color='yellow')
+		txtb=fig.text(0.32,0.8,'Pan-STARRS',fontsize=23,color='yellow')
 		txtb.set_path_effects([PathEffects.withStroke(linewidth=2, foreground='k')])
 		
 		fig1.add_patch(FancyArrowPatch((size1-10/0.25-10,30),(size1-10,30),arrowstyle='-',color='k',linewidth=3.5))
@@ -644,7 +673,7 @@ def panscut(name,ra,dec,fol):
 		fig.text(0.5,0.05,r'$\alpha$',fontsize=22,horizontalalignment='center')
 		fig.text(0.03,0.5,r'$\delta$',fontsize=22,verticalalignment='center',rotation=90)
 		
-		plt.savefig(fol+'/'+name+'/'+fname,dpi=120,format='PNG',bbox_inches='tight')
+		plt.savefig(fol+'/'+name+'/'+fname,dpi=120,format='PNG')
 		fig.clear()
 		
 		return fname
@@ -735,7 +764,7 @@ def dsscut(name,ra,dec,fol):
 		
 		fname=name+'_dss.png'
 		
-		plt.savefig(fol+'/'+name+'/'+fname,dpi=120,format='PNG',bbox_inches='tight')
+		plt.savefig(fol+'/'+name+'/'+fname,dpi=120,format='PNG')
 		fig.clear()
 		
 		return fname
@@ -805,7 +834,7 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol):
 					doc.asis('</br>')
 					text('dec = '+vis[i]["coord"][1]+' = '+vis[i]["coordD"][1])
 					doc.asis('</br></br>')
-					text('galactic (l,b) = ('+vis[i]["coordG"][0]+','+vis[i]["coordG"][1]+')')
+					text('Galactic (l,b) = ('+vis[i]["coordG"][0]+','+vis[i]["coordG"][1]+')')
 					
 				#
 				# gal extinction
@@ -898,7 +927,7 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol):
 										with tag('td'):
 											text(str(round(wei[i]["sdist"][ii],2)))
 										with tag('td'):
-											with tag('a', href="https://wis-tns.weizmann.ac.il/object/"+wei[i]["sname"][ii][3:], target="_blank"):
+											with tag('a', href="https://wis-tns.weizmann.ac.il/"+wei[i]["slink"][ii], target="_blank"):
 												text('more')
 
 				#
@@ -1002,7 +1031,7 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol):
 				
 				with tag('p'):
 					with tag('b', style='border-top: 1px solid; border-bottom: 1px solid'):
-						text('PanSTARRS')
+						text('Pan-STARRS')
 					
 					doc.asis('</br>')
 					doc.asis('</br>')
@@ -1099,7 +1128,7 @@ def main():
 	else:
 		rad=20 # [arcsec] radius in which known objects are searched for in Simbad
 		radW=20 # [arcsec] radius in which preexisting transients are searched for in TNS server
-		datestart='2018-09-01' # start date for searching in TNS server
+		datestart='2010-01-01' # start date for searching in TNS server
 		radM=5 # [arcmin] radius in which to search for potential minor planets
 		magM=24.0 # limiting V magnitude of minor planets
 		radG=15 # [arcsec] radius in which potential host galaxies are searched for in GLADE, if lumd unknown
@@ -1147,7 +1176,7 @@ def main():
 		ext.append(extinction(lin[0],lin[1],lin[2],fol))
 		print('\tSimbad')
 		sim.append(simbad(lin[0],lin[1],lin[2],fol,rad))
-		print('\tWeizmann')
+		print('\tTNS')
 		wei.append(weizmann(lin[0],lin[1],lin[2],fol,radW,datestart))
 		print('\tGLADE')
 		gla.append(glade(lin[0],lin[1],lin[2],fol,radG,ld,offG))
@@ -1156,7 +1185,7 @@ def main():
 			mpp.append(mplanet(lin[0],lin[1],lin[2],lin[3],radM,magM,fol))
 		else:
 			mpp.append('noplanet')
-		print('\tRetrieving PanSTARRS cutout')
+		print('\tRetrieving Pan-STARRS cutout')
 		pan.append(panscut(lin[0],lin[1],lin[2],fol))
 		if pan[-1]==-99:
 			print('\tRetrieving DSS cutout')
