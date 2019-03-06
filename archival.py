@@ -25,6 +25,9 @@ date is necessary for the search of coincident Solar system objects.
 -d: luminosity distance and error in Mpc (eg. -d 80 20)
 
 Updates:
+07. 02. 2019
+		- embed Aladin Lite, ecliptic coords
+
 05. 02. 2019
 		- fix several bugs, TNS parsing
 
@@ -196,6 +199,35 @@ def geturl(ra, dec, size=1200, output_size=None, filters="grizy", format="jpg", 
     return url
 
 '''
+Convert from equatorial to ecliptic coordinates
+'''
+def ecliptic(ra,dec):
+	D2R = np.pi/180.0
+	twopi = 2.0*np.pi
+	fourpi = 4.0*np.pi
+	R2D = 1.0/D2R
+	
+	psi=0.0
+	stheta=0.39777715593
+	ctheta=0.91748206207
+	phi=0.0
+	
+	a = ra*D2R - phi
+	b = dec*D2R
+	sb = np.sin(b)
+	cb = np.cos(b)
+	cbsa = cb*np.sin(a)
+	b = -stheta*cbsa + ctheta*sb
+	w, = np.where(b > 1.0)
+	if w.size > 0:
+		b[w] = 1.0
+	bo = np.arcsin(b)*R2D
+	a = np.arctan2( ctheta*cbsa + stheta*sb, cb*np.cos(a))
+	ao = ( (a+psi+fourpi) % twopi) * R2D
+	
+	return str(round(ao,6)),str(round(bo,6))
+
+'''
 Specifically for Paranal.
 '''
 def visibility(name,ra,dec,fol):
@@ -212,6 +244,11 @@ def visibility(name,ra,dec,fol):
 	#
 	c_icrs = coord.SkyCoord(ra1*u.degree, dec1*u.degree, frame='icrs')
 	gal=c_icrs.galactic.to_string('decimal',precision=6).split()
+	
+	#
+	# transformation to ecliptic coordinates
+	#
+	ecl=ecliptic(ra1,dec1)
 	
 	#
 	# current date/time
@@ -242,11 +279,11 @@ def visibility(name,ra,dec,fol):
 			shutil.copyfileobj(response, outf)
 		
 		print('\t... plot saved to:', fol+'/'+name+'/'+name+'.gif')
-		return {"out":name+'/'+name+'.gif',"coord":[ra,dec],"coordD":[ra1s,dec1s],"coordG":[gal[0],gal[1]]}
+		return {"out":name+'/'+name+'.gif',"coord":[ra,dec],"coordD":[ra1s,dec1s],"coordG":[gal[0],gal[1]],"coordEc":[ecl[0],ecl[1]]}
 		
 	except Exception as e:
 		print(str(e))
-		return {"out":"-99","coord":[ra,dec],"coordD":[ra1s,dec1s],"coordG":[gal[0],gal[1]]} 
+		return {"out":"-99","coord":[ra,dec],"coordD":[ra1s,dec1s],"coordG":[gal[0],gal[1]],"coordEc":[ecl[0],ecl[1]]} 
 
 '''
 From NASA/IPAC Extragalactic Database 
@@ -415,6 +452,8 @@ def mplanet(name,ra,dec,tim,rad,mag,fol):
 	nyear=tim.split('-')[0]
 	nmonth=tim.split('-')[1]
 	nday=tim.split('-')[2]
+
+	
 
 	#
 	# check page
@@ -795,6 +834,38 @@ def additional(name,ra,dec):
 
 
 '''
+Create the javascript to handle the embedded Aladin Lite
+'''
+def makealadin(num,pan,fol):
+
+	f=open(fol+'/embed_aladin.js','w')
+	
+	for i in range(num):
+		f.write('function aladin'+str(i+1)+'(nam,ra,dec,fov1,epo){\n')
+		divlink='#aladin-lite-div'+str(i+1)
+		if pan[i] == -99:
+			surv='P/DSS2/red'
+		else:
+			surv='P/PanSTARRS/DR1/color-z-zg-g'
+		f.write('var aladin = A.aladin(\''+divlink+'\', {survey: \"'+surv+'\", fov:fov1});\n')
+		f.write('aladin.gotoRaDec(ra, dec);\n')
+		f.write('var marker1=A.marker(ra, dec, {popupTitle: nam});\n')
+		f.write('var markerLayer = A.catalog({sourceSize:18});\n')
+		f.write('aladin.addCatalog(markerLayer);\n')
+		f.write('markerLayer.addSources([marker1]);\n')
+		f.write('aladin.addCatalog(A.catalogFromSimbad({ra: ra, dec: dec}, 0.1, {shape: \'plus\', color : \'#5d5\', onClick: \'showPopup\', sourceSize: 18}));\n')
+		f.write('aladin.addCatalog(A.catalogFromVizieR(\'V/147/sdss12\',{ra: ra, dec: dec}, 0.1, {shape: \'square\', sourceSize: 8, color: \'red\', onClick: \'showPopup\'}));\n')
+		f.write('aladin.addCatalog(A.catalogFromVizieR(\'II/349/ps1\',{ra: ra, dec: dec}, 0.1, {shape: \'circle\', sourceSize: 8, color: \'blue\', onClick: \'showPopup\'}));\n')
+		f.write('if (epo > 0.0){\n')
+		f.write('aladin.addCatalog(A.catalogFromSkyBot(ra, dec, 0.1, epo, {shape: \'triangle\', sourceSize: 8, color: \'yellow\', onClick: \'showPopup\'}));\n')
+		f.write('}\n')
+		f.write('}\n\n')
+		
+	
+	f.close()
+	
+
+'''
 Create an html summary file. 
 '''
 def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol):
@@ -802,14 +873,19 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol):
 	n=len(name)
 	
 	doc, tag, text = Doc().tagtext()
+	doc.asis('<!DOCTYPE html>\n')
 	with tag('html'):
 		#
 		# head, include simple internal css
 		#
+		doc.asis('\n\n')
 		with tag('head'):
+			doc.asis('\n\n')
 			with tag('title'):
 				text('GW candidates check')
-			doc.asis("<!-- gsfc meta tags --><meta http-equiv=\"Content-Type\" content=\"text/html;charset=UTF-8\">")
+			doc.asis('\n\n')
+			doc.asis("<meta http-equiv=\"Content-Type\" content=\"text/html;charset=UTF-8\">")
+			doc.asis('\n\n')
 			with tag('style'):
 				doc.asis('p { font-family: Geneva,sans-serif; font-size: 1em; font-weight: 500; margin: 1em; }')
 				doc.asis(' a { color: #ff6600; transition: .5s; -moz-transition: .5s; -webkit-transition: .5s; -o-transition: .5s; font-family: Geneva, sans-serif; }')
@@ -819,26 +895,37 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol):
 				doc.asis(' #table1 td {padding-left: 10px; padding-right: 10px}')
 				doc.asis(' #table1 td:nth-child(4) {background: #FFDEAD}')
 				doc.asis(' #table1 td:nth-child(12) {background: #FFDEAD}')
+			doc.asis('\n\n')
+			doc.asis('<link rel=\"stylesheet\" href=\"http://aladin.u-strasbg.fr/AladinLite/api/v2/latest/aladin.min.css\" />')
 		# 
 		# body
 		#
+		doc.asis('\n\n')
 		with tag('body'):
+			doc.asis('\n\n')
+			doc.asis('<script type=\"text/javascript\" src=\"http://code.jquery.com/jquery-1.12.1.min.js\" charset=\"utf-8\"></script>')
+			doc.asis('\n\n')
 			for i in range(n):
 				with tag('h2'):
 					text(name[i])
 				#
 				# coordinates, basic info
 				#
+				doc.asis('\n\n')
 				with tag('p'):
 					text('ra = '+vis[i]["coord"][0]+' = '+vis[i]["coordD"][0])
 					doc.asis('</br>')
 					text('dec = '+vis[i]["coord"][1]+' = '+vis[i]["coordD"][1])
 					doc.asis('</br></br>')
 					text('Galactic (l,b) = ('+vis[i]["coordG"][0]+','+vis[i]["coordG"][1]+')')
+					doc.asis('</br></br>')
+					doc.asis('Ecliptic (&lambda;,&beta;) = ('+vis[i]["coordEc"][0]+','+vis[i]["coordEc"][1]+')')
 					
 				#
 				# gal extinction
 				#
+				doc.asis('\n\n')
+				doc.asis('</br></br>')
 				with tag('p'):
 					with tag('b', style='border-top: 1px solid; border-bottom: 1px solid'):
 						text('Galactic extinction (')
@@ -853,9 +940,40 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol):
 						with tag('a', href=name[i]+'/'+name[i]+'_extinction.txt', target="_blank"):
 							text('details')
 						doc.asis(')')
+				
+				
+				#
+				# ALADIN
+				#
+				doc.asis('\n\n')
+				doc.asis('</br></br>')
+				with tag('p'):
+					with tag('b', style='border-top: 1px solid; border-bottom: 1px solid'):
+						text('Aladin Lite (')
+						with tag('a', href="https://aladin.u-strasbg.fr/AladinLite/", target="_blank"):
+									text('here')
+						doc.asis(')</br></br>')
+
+					
+					divlink='aladin-lite-div'+str(i+1)
+					doc.asis('<div id=\"'+divlink+'\" style=\"width:600px;height:600px;margin-left:1em;\"></div>')
+					doc.asis('<script type=\"text/javascript\" src=\"http://aladin.u-strasbg.fr/AladinLite/api/v2/latest/aladin.min.js\" charset=\"utf-8\"></script>')
+					
+					doc.asis('<script src=\"embed_aladin.js\"></script>')
+					
+					if mpp[i] is 'noplanet':
+						plan=-1
+					else:
+						plan=2456293.5
+					alin='<script>aladin'+str(i+1)+'(\"'+name[i]+'\",'+vis[i]["coordD"][0]+','+vis[i]["coordD"][1]+',0.01666,'+str(plan)+');</script>'
+					
+					doc.asis(alin)
+				
 				#
 				# simbad query
 				#
+				doc.asis('\n\n')
+				doc.asis('</br></br>')
 				with tag('p'):
 					with tag('b', style='border-top: 1px solid; border-bottom: 1px solid'):
 						text('Simbad (')
@@ -895,6 +1013,8 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol):
 				#
 				# TNS query
 				#
+				doc.asis('\n\n')
+				doc.asis('</br></br>')
 				with tag('p'):
 					with tag('b', style='border-top: 1px solid; border-bottom: 1px solid'):
 						text('Transient Name Server (')
@@ -933,7 +1053,9 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol):
 				#
 				# Minor planets querry
 				#
+				doc.asis('\n\n')
 				if mpp[i] is not 'noplanet':
+					doc.asis('</br></br>')
 					with tag('p'):
 						with tag('b', style='border-top: 1px solid; border-bottom: 1px solid'):
 							text('Minor planets (')
@@ -953,6 +1075,8 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol):
 				#
 				# GLADE query
 				#
+				doc.asis('\n\n')
+				doc.asis('</br></br>')
 				with tag('p'):
 					with tag('b', style='border-top: 1px solid; border-bottom: 1px solid'):
 						text('GLADE catalogue (')
@@ -1018,7 +1142,8 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol):
 											with tag('td'):
 												text(str(gla[i]["pars"][ii][jj]))
 								
-
+				doc.asis('\n\n')
+				doc.asis('</br></br>')
 				with tag('p'):
 					with tag('b', style='border-top: 1px solid; border-bottom: 1px solid'):
 						text('Visibility (Paranal)')
@@ -1028,45 +1153,46 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol):
 					
 					if vis[i]["out"] is not "-99":
 						doc.stag('img', src=vis[i]["out"])
-				
-				with tag('p'):
-					with tag('b', style='border-top: 1px solid; border-bottom: 1px solid'):
-						text('Pan-STARRS')
+				#doc.asis('\n\n')
+				#with tag('p'):
+					#with tag('b', style='border-top: 1px solid; border-bottom: 1px solid'):
+						#text('Pan-STARRS')
 					
-					doc.asis('</br>')
-					doc.asis('</br>')
+					#doc.asis('</br>')
+					#doc.asis('</br>')
 					
-					if pan[i] == -99:
-						text('Images not available.')
+					#if pan[i] == -99:
+						#text('Images not available.')
 					
-					else:
-						text('The region around the source in r and grz image (5\'x5\' image saved to '+name[i]+'/'+name[i]+'_panstarrs_cutout_1200px_r.fits):')
+					#else:
+						#text('The region around the source in r and grz image (5\'x5\' image saved to '+name[i]+'/'+name[i]+'_panstarrs_cutout_1200px_r.fits):')
 						
-						doc.asis('</br>')
-						doc.asis('</br>')
+						#doc.asis('</br>')
+						#doc.asis('</br>')
 						
-						doc.stag('img', src=name[i]+'/'+pan[i])
+						#doc.stag('img', src=name[i]+'/'+pan[i])
 				
+				#doc.asis('\n\n')
+				#if pan[i] == -99:
+					#with tag('p'):
+						#with tag('b', style='border-top: 1px solid; border-bottom: 1px solid'):
+							#text('DSS')
+						
+						#doc.asis('</br>')
+						#doc.asis('</br>')
 				
-				if pan[i] == -99:
-					with tag('p'):
-						with tag('b', style='border-top: 1px solid; border-bottom: 1px solid'):
-							text('DSS')
+						#if dss[i] == -99:
+							#text('Images not available.')
 						
-						doc.asis('</br>')
-						doc.asis('</br>')
-				
-						if dss[i] == -99:
-							text('Images not available.')
+						#else:
+							#text('The region around the source in r (5\'x5\' image saved to '+name[i]+'/'+name[i]+'_dss_red.fits):')
 						
-						else:
-							text('The region around the source in r (5\'x5\' image saved to '+name[i]+'/'+name[i]+'_dss_red.fits):')
+							#doc.asis('</br>')
+						#doc.asis('</br>')
 						
-							doc.asis('</br>')
-						doc.asis('</br>')
-						
-						doc.stag('img', src=name[i]+'/'+dss[i])
-				
+						#doc.stag('img', src=name[i]+'/'+dss[i])
+				doc.asis('\n\n')
+				doc.asis('</br></br>')
 				with tag('p'):
 					with tag('b', style='border-top: 1px solid; border-bottom: 1px solid'):
 						text('Additional links and information')
@@ -1084,17 +1210,19 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol):
 					with tag('a', href=add[i]["ned"], target="_blank"):
 									text('search')
 					text(' (within 1 arcmin box)')
-				
+				doc.asis('\n\n')
+
+				doc.asis('\n\n')
 				doc.stag('hr', style="width: 100%")
-					
-	
+				
+			
 	result = doc.getvalue()
 	
 	f=open(fol+'/'+parin[-1],'w')
 	f.write(result)
 	f.close()
 	
-	
+
 def main():
 	usage = "usage: %prog [options] \n\nBasic checks for GW candidates."
 	parser = OptionParser(usage)
@@ -1200,6 +1328,7 @@ def main():
 	print('\nBuilding an html summary page: ', fol+'/'+webname)
 	
 	parin=[rad,radW,datestart,radM,magM,radG,offG,webname]
+	alad=makealadin(len(nam),pan,fol)
 	makehtml(nam,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol)
 	
 	print('\nScript completed.\n')
