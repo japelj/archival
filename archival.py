@@ -65,6 +65,7 @@ from scipy import interpolate
 from PIL import Image
 from io import BytesIO
 import matplotlib.patheffects as PathEffects
+from astropy.time import Time
 
 '''
 Coordinates to degrees
@@ -453,7 +454,18 @@ def mplanet(name,ra,dec,tim,rad,mag,fol):
 	nmonth=tim.split('-')[1]
 	nday=tim.split('-')[2]
 
+	nnday=nday.split('.')
+	nhour=float('0.'+nnday[1])*24
+	nnhour=str(nhour).split('.')
+	nmin=float('0.'+nnhour[1])*60
+	nnmin=str(nmin).split('.')
+	nsec=float('0.'+nnmin[1])*60
 	
+	#
+	# calculate julian date
+	#
+	t = Time(datetime.datetime(int(nyear), int(nmonth), int(nnday[0]), int(nnhour[0]), int(nnmin[0]), int(nsec)))
+	tjd=t.jd
 
 	#
 	# check page
@@ -461,7 +473,7 @@ def mplanet(name,ra,dec,tim,rad,mag,fol):
 	pagea = requests.get('https://cgi.minorplanetcenter.net/cgi-bin/checkmp.cgi')
 	if pagea.status_code is not 200:
 		print('error: Page not available.')
-		return -99
+		return -99, tjd
 	
 	else:
 		print('\t... Search radius:',rad,' arcmin')
@@ -479,10 +491,10 @@ def mplanet(name,ra,dec,tim,rad,mag,fol):
 		
 		if n1 == -1:
 			print('\t... Minor planets found: 0')
-			return 'No known minor planets, brighter than V = '+str(mag)+', were found in the '+str(rad)+'-arcminute region around the source on '+tim
+			return 'No known minor planets, brighter than V = '+str(mag)+', were found in the '+str(rad)+'-arcminute region around the source on '+tim, tjd
 		else:
 			print('\t... Minor planets found - see html output for details!')
-			return htm[n1+5:n2]
+			return htm[n1+5:n2], tjd
 		
 		
 	
@@ -868,7 +880,7 @@ def makealadin(num,pan,fol):
 '''
 Create an html summary file. 
 '''
-def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol):
+def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol,mpp2):
 	
 	n=len(name)
 	
@@ -917,9 +929,9 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol):
 					doc.asis('</br>')
 					text('dec = '+vis[i]["coord"][1]+' = '+vis[i]["coordD"][1])
 					doc.asis('</br></br>')
-					text('Galactic (l,b) = ('+vis[i]["coordG"][0]+','+vis[i]["coordG"][1]+')')
+					text('Galactic (l,b) = ('+vis[i]["coordG"][0]+', '+vis[i]["coordG"][1]+')')
 					doc.asis('</br></br>')
-					doc.asis('Ecliptic (&lambda;,&beta;) = ('+vis[i]["coordEc"][0]+','+vis[i]["coordEc"][1]+')')
+					doc.asis('Ecliptic (&lambda;,&beta;) = ('+vis[i]["coordEc"][0]+', '+vis[i]["coordEc"][1]+')')
 					
 				#
 				# gal extinction
@@ -964,7 +976,7 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol):
 					if mpp[i] is 'noplanet':
 						plan=-1
 					else:
-						plan=2456293.5
+						plan=mpp2[i]
 					alin='<script>aladin'+str(i+1)+'(\"'+name[i]+'\",'+vis[i]["coordD"][0]+','+vis[i]["coordD"][1]+',0.01666,'+str(plan)+');</script>'
 					
 					doc.asis(alin)
@@ -1153,44 +1165,44 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol):
 					
 					if vis[i]["out"] is not "-99":
 						doc.stag('img', src=vis[i]["out"])
-				#doc.asis('\n\n')
-				#with tag('p'):
-					#with tag('b', style='border-top: 1px solid; border-bottom: 1px solid'):
-						#text('Pan-STARRS')
+				doc.asis('\n\n')
+				with tag('p'):
+					with tag('b', style='border-top: 1px solid; border-bottom: 1px solid'):
+						text('Pan-STARRS')
 					
-					#doc.asis('</br>')
-					#doc.asis('</br>')
+					doc.asis('</br>')
+					doc.asis('</br>')
 					
-					#if pan[i] == -99:
-						#text('Images not available.')
+					if pan[i] == -99:
+						text('Images not available.')
 					
-					#else:
-						#text('The region around the source in r and grz image (5\'x5\' image saved to '+name[i]+'/'+name[i]+'_panstarrs_cutout_1200px_r.fits):')
+					else:
+						text('The region around the source in r and grz image (5\'x5\' image saved to '+name[i]+'/'+name[i]+'_panstarrs_cutout_1200px_r.fits):')
 						
-						#doc.asis('</br>')
-						#doc.asis('</br>')
+						doc.asis('</br>')
+						doc.asis('</br>')
 						
-						#doc.stag('img', src=name[i]+'/'+pan[i])
+						doc.stag('img', src=name[i]+'/'+pan[i])
 				
-				#doc.asis('\n\n')
-				#if pan[i] == -99:
-					#with tag('p'):
-						#with tag('b', style='border-top: 1px solid; border-bottom: 1px solid'):
-							#text('DSS')
+				doc.asis('\n\n')
+				if pan[i] == -99:
+					with tag('p'):
+						with tag('b', style='border-top: 1px solid; border-bottom: 1px solid'):
+							text('DSS')
 						
-						#doc.asis('</br>')
-						#doc.asis('</br>')
+						doc.asis('</br>')
+						doc.asis('</br>')
 				
-						#if dss[i] == -99:
-							#text('Images not available.')
+						if dss[i] == -99:
+							text('Images not available.')
 						
-						#else:
-							#text('The region around the source in r (5\'x5\' image saved to '+name[i]+'/'+name[i]+'_dss_red.fits):')
+						else:
+							text('The region around the source in r (5\'x5\' image saved to '+name[i]+'/'+name[i]+'_dss_red.fits):')
 						
-							#doc.asis('</br>')
-						#doc.asis('</br>')
+							doc.asis('</br>')
+						doc.asis('</br>')
 						
-						#doc.stag('img', src=name[i]+'/'+dss[i])
+						doc.stag('img', src=name[i]+'/'+dss[i])
 				doc.asis('\n\n')
 				doc.asis('</br></br>')
 				with tag('p'):
@@ -1289,6 +1301,7 @@ def main():
 	gla=[]
 	pan=[]
 	mpp=[]
+	mpp2=[]
 	add=[]
 	dss=[]
 	for lines in inp:
@@ -1310,9 +1323,12 @@ def main():
 		gla.append(glade(lin[0],lin[1],lin[2],fol,radG,ld,offG))
 		print('\tMinor planets')
 		if len(lin)==4:
-			mpp.append(mplanet(lin[0],lin[1],lin[2],lin[3],radM,magM,fol))
+			a,b=mplanet(lin[0],lin[1],lin[2],lin[3],radM,magM,fol)
+			mpp.append(a)
+			mpp2.append(b)
 		else:
 			mpp.append('noplanet')
+			mpp2.append('noplanet')
 		print('\tRetrieving Pan-STARRS cutout')
 		pan.append(panscut(lin[0],lin[1],lin[2],fol))
 		if pan[-1]==-99:
@@ -1329,7 +1345,7 @@ def main():
 	
 	parin=[rad,radW,datestart,radM,magM,radG,offG,webname]
 	alad=makealadin(len(nam),pan,fol)
-	makehtml(nam,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol)
+	makehtml(nam,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol,mpp2)
 	
 	print('\nScript completed.\n')
 
