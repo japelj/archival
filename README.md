@@ -9,6 +9,7 @@ The script is written in Python 3. The following modules are required:
 - astroquery
 - matplotlib
 - numpy
+- scipy
 - pandas
 - pillow
 - requests

@@ -60,10 +60,11 @@ from yattag import Doc
 import numpy as np
 import requests
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle, FancyArrowPatch
 from scipy import interpolate
+from matplotlib.patches import Circle, FancyArrowPatch
 from PIL import Image
 from io import BytesIO
+import io
 import matplotlib.patheffects as PathEffects
 from astropy.time import Time
 
@@ -304,18 +305,18 @@ def extinction(name,ra,dec,fol):
 	link="https://ned.ipac.caltech.edu/cgi-bin/calc?in_csys=Equatorial&in_equinox=J2000.0&obs_epoch=2000.0&"+coordlist+"&pa=0.0&out_csys=Equatorial&out_equinox=J2000.0"
 	
 	try:
-		tables = pd.read_html(link)
+		tables = pd.read_html(link,header=0)
 		
 		filters=['Landolt','SDSS','UKIRT']
-		nt=89
+		nt=88
 		
 		nn=0
 		tabe=open(fol+'/'+name+'/'+name+'_extinction.txt','w')
 		for i in range(nt):
-			if tables[1][0][i] in filters:
-				tabe.write(tables[1][0][i]+'\t'+tables[1][1][i]+'\t'+str(tables[1][2][i])+'\t'+str(tables[1][3][i])+'\n')
-				if tables[1][0][i] == 'Landolt' and tables[1][1][i] == 'V':
-					av=tables[1][3][i]
+			if tables[1].iloc[:,0][i] in filters:
+				tabe.write(tables[1].iloc[:,0][i]+'\t'+tables[1].iloc[:,1][i]+'\t'+str(tables[1].iloc[:,2][i])+'\t'+str(tables[1].iloc[:,3][i])+'\n')
+				if tables[1].iloc[:,0][i] == 'Landolt' and tables[1].iloc[:,1][i] == 'V':
+					av=tables[1].iloc[:,3][i]
 				nn += 1
 		
 		tabe.close()
@@ -323,6 +324,7 @@ def extinction(name,ra,dec,fol):
 		print('\t... Av = ', np.round(av,2))
 		print('\t... extinction in additional filters saved to:',fol+'/'+name+'/'+name+'_extinction.txt')
 		return av
+
 	except Exception as e:
 		print(str(e))
 		return -99
@@ -665,69 +667,69 @@ def panscut(name,ra,dec,fol):
 		y2=int(size/2. + size1/2.)
 		
 		fim=fim[y1:y2,x1:x2]
-		fhe["CRPIX1"]=fhe["CRPIX1"] - x1
-		fhe["CRPIX2"]=fhe["CRPIX2"] - y1
 		
 		fim[np.isnan(fim)] = 0.0
 		transform = AsinhStretch() + PercentileInterval(99.9)
 		bfim = transform(fim)
-		
-		with warnings.catch_warnings():	#because there are deprecated keywords in the header, no need to write it out
-			warnings.simplefilter("ignore")
-			wcs = WCS(fhe)
-		
-		#
-		# produce and save the FC
-		#
-		fig=plt.figure(1, figsize=(12,6))
-		fig1=fig.add_subplot(121,aspect='equal', projection=wcs)
-		
-		plt.imshow(bfim,cmap='gray_r',origin='lower')
-		c = Circle((ra1, dec1), 0.00028, edgecolor='k', lw=2,facecolor='none',transform=fig1.get_transform('fk5'))
-		fig1.add_patch(c)
-		c = Circle((ra1, dec1), 0.00028, edgecolor='yellow', facecolor='none',transform=fig1.get_transform('fk5'))
-		fig1.add_patch(c)
-		txta=fig.text(0.14,0.8,name,fontsize=23,color='yellow')
-		txta.set_path_effects([PathEffects.withStroke(linewidth=2, foreground='k')])
-		txtb=fig.text(0.32,0.8,'Pan-STARRS',fontsize=23,color='yellow')
-		txtb.set_path_effects([PathEffects.withStroke(linewidth=2, foreground='k')])
-		
-		fig1.add_patch(FancyArrowPatch((size1-10/0.25-10,30),(size1-10,30),arrowstyle='-',color='k',linewidth=3.5))
-		fig1.add_patch(FancyArrowPatch((size1-10/0.25-10,30),(size1-10,30),arrowstyle='-',color='yellow',linewidth=2.0))
 
-		txtc=fig.text(0.42,0.18,'10"',fontsize=20,color='yellow')
-		txtc.set_path_effects([PathEffects.withStroke(linewidth=2, foreground='k')])
-		
-		fname=name+'_panstarrs.png'
-		
-		#plt.savefig(fol+'/'+fname,dpi=150,format='PNG',bbox_inches='tight')
-		#fig.clear()
-		
-		#
-		# get colour image
-		#
-		url = geturl(ra1,dec1,size=size1,filters='grz',output_size=None,format='png',color=True)
-		r = requests.get(url)
-		
-		im = Image.open(BytesIO(r.content))
-		
-		#figA=plt.figure(2)
-		figA1=fig.add_subplot(122,aspect='equal',projection=wcs)
-		
-		plt.imshow(im,origin="lower")
-		c = Circle((ra1, dec1), 0.00028, lw=2, edgecolor='k', facecolor='none',transform=figA1.get_transform('fk5'))
-		figA1.add_patch(c)
-		c = Circle((ra1, dec1), 0.00028, edgecolor='yellow', facecolor='none',transform=figA1.get_transform('fk5'))
-		figA1.add_patch(c)
-		#fname=name+'_pan_'+'color_grz.png'
-		
-		fig.text(0.5,0.05,r'$\alpha$',fontsize=22,horizontalalignment='center')
-		fig.text(0.03,0.5,r'$\delta$',fontsize=22,verticalalignment='center',rotation=90)
-		
-		plt.savefig(fol+'/'+name+'/'+fname,dpi=120,format='PNG')
-		fig.clear()
-		
-		return fname
+		try:
+			#
+			# produce and save the FC
+			#
+			fig=plt.figure(1, figsize=(12,6))
+			fig1=fig.add_subplot(121,aspect='equal')
+			
+			plt.imshow(bfim,cmap='gray_r',origin='lower')
+			c = Circle((size1/2., size1/2.), 1./pix, edgecolor='k', lw=2,facecolor='none')
+			fig1.add_patch(c)
+			c = Circle((size1/2., size1/2.), 1./pix, edgecolor='yellow', facecolor='none')
+			fig1.add_patch(c)
+			txta=fig.text(0.14,0.8,name,fontsize=23,color='yellow')
+			txta.set_path_effects([PathEffects.withStroke(linewidth=2, foreground='k')])
+			txtb=fig.text(0.32,0.8,'Pan-STARRS',fontsize=23,color='yellow')
+			txtb.set_path_effects([PathEffects.withStroke(linewidth=2, foreground='k')])
+			
+			fig1.add_patch(FancyArrowPatch((size1-10/0.25-10,30),(size1-10,30),arrowstyle='-',color='k',linewidth=3.5))
+			fig1.add_patch(FancyArrowPatch((size1-10/0.25-10,30),(size1-10,30),arrowstyle='-',color='yellow',linewidth=2.0))
+
+			txtc=fig.text(0.44,0.16,'10"',fontsize=20,color='yellow')
+			txtc.set_path_effects([PathEffects.withStroke(linewidth=2, foreground='k')])
+			
+			plt.gca().xaxis.set_major_locator(plt.NullLocator())
+			plt.gca().yaxis.set_major_locator(plt.NullLocator())
+			
+			fname=name+'_panstarrs.png'
+			
+			
+			#
+			# get colour image
+			#
+			url = geturl(ra1,dec1,size=size1,filters='grz',output_size=None,format='png',color=True)
+			r = requests.get(url)
+			
+			im = Image.open(BytesIO(r.content))
+				
+			figA1=fig.add_subplot(122,aspect='equal')
+			
+			plt.imshow(im)
+			c = Circle((size1/2., size1/2.), 1./pix, lw=2, edgecolor='k', facecolor='none')
+			figA1.add_patch(c)
+			c = Circle((size1/2., size1/2.), 1./pix, edgecolor='yellow', facecolor='none')
+			figA1.add_patch(c)
+			fname=name+'_pan_'+'color_grz.png'
+			
+			plt.gca().xaxis.set_major_locator(plt.NullLocator())
+			plt.gca().yaxis.set_major_locator(plt.NullLocator())
+			plt.subplots_adjust(wspace=0.1)
+			
+			plt.savefig(fol+'/'+name+'/'+fname,dpi=120,format='PNG')
+			fig.clear()
+			
+			return fname
+			
+		except Exception as e:
+			print(str(e))
+			return -99
 
 '''
 Get a cutout of the region from DSS survey and create a simple FC
@@ -777,8 +779,6 @@ def dsscut(name,ra,dec,fol):
 		y2=int(30*(size + size1))
 		
 		fim=fim[y1:y2,x1:x2]
-		fhe["CRPIX1"]=fhe["CRPIX1"] - x1
-		fhe["CRPIX2"]=fhe["CRPIX2"] - y1
 		
 		fim[np.isnan(fim)] = 0.0
 		transform = AsinhStretch() + PercentileInterval(99.7)
@@ -791,27 +791,27 @@ def dsscut(name,ra,dec,fol):
 		#
 		# produce and save the FC
 		#
-		fig=plt.figure(2)
-		fig1=fig.add_subplot(111,aspect='equal', projection=wcs)
+		fig=plt.figure(2,figsize=(5,5))
+		fig1=fig.add_subplot(111,aspect='equal')
 		
 		plt.imshow(bfim,cmap='gray_r',origin='lower')
 		c = Circle((size1*30, size1*30), pix*2, edgecolor='k', lw=2,facecolor='none')
 		fig1.add_patch(c)
 		c = Circle((size1*30, size1*30), pix*2, edgecolor='yellow', facecolor='none')
 		fig1.add_patch(c)
-		txta=fig.text(0.25,0.8,name,fontsize=23,color='yellow')
+		txta=fig.text(0.18,0.8,name,fontsize=23,color='yellow')
 		txta.set_path_effects([PathEffects.withStroke(linewidth=2, foreground='k')])
-		txtb=fig.text(0.7,0.8,'DSS',fontsize=23,color='yellow')
+		txtb=fig.text(0.75,0.8,'DSS',fontsize=23,color='yellow')
 		txtb.set_path_effects([PathEffects.withStroke(linewidth=2, foreground='k')])
 		
 		fig1.add_patch(FancyArrowPatch((size1*60-15/pix-10,20),(size1*60-10,20),arrowstyle='-',color='k',linewidth=3.5))
 		fig1.add_patch(FancyArrowPatch((size1*60-15/pix-10,20),(size1*60-10,20),arrowstyle='-',color='yellow',linewidth=2.0))
 
-		txtc=fig.text(0.71,0.16,'15"',fontsize=20,color='yellow')
+		txtc=fig.text(0.75,0.16,'15"',fontsize=20,color='yellow')
 		txtc.set_path_effects([PathEffects.withStroke(linewidth=2, foreground='k')])
-		
-		plt.xlabel(r'$\alpha$',fontsize=22)
-		plt.ylabel(r'$\delta$',fontsize=22)
+
+		plt.gca().xaxis.set_major_locator(plt.NullLocator())
+		plt.gca().yaxis.set_major_locator(plt.NullLocator())
 		
 		fname=name+'_dss.png'
 		
@@ -1305,6 +1305,8 @@ def main():
 	add=[]
 	dss=[]
 	for lines in inp:
+		if lines=='\n':
+			continue
 		line=lines.strip('\n')
 		lin=line.split()
 		if not os.path.exists(fol+'/'+lin[0]):
