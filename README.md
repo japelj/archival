@@ -7,6 +7,7 @@ A script to cross-check whether a transient source coincides with a galaxy, star
 The script is written in Python 3. The following modules are required:
 - astropy
 - astroquery
+- lxml
 - matplotlib
 - numpy
 - scipy
