@@ -627,7 +627,7 @@ Get a cutout of the region from PanSTARRS survey and create a simple FC
 '''
 def panscut(name,ra,dec,fol):
 	
-	plt.rc('text', usetex=True)
+	plt.rc('text', usetex=False)
 	plt.rc('font', family='serif')
 	
 	#
@@ -642,94 +642,99 @@ def panscut(name,ra,dec,fol):
 	#
 	pix=0.25
 	ra1,dec1=transCoord(ra,dec)
-	fitsurl = geturl(ra1, dec1, size=size, filters=fil, format="fits")
+	suc=0
+	try:
+		fitsurl = geturl(ra1, dec1, size=size, filters=fil, format="fits")
 	
-	if not fitsurl:	#no image returned, not in the field
-		print('\t... Image not available')
-		return -99
-	else:
-		fh = fits.open(fitsurl[0])
-		fim = fh[0].data
-		fhe = fh[0].header
-		
-		#
-		# save fits image
-		#
-		with warnings.catch_warnings(): #to prevent the warnings in case the script is run several times and the files are rewritten
-			fits.writeto(fol+'/'+name+'/'+name+'_panstarrs_cutout_'+str(size)+'px_'+fil+'.fits', fim, fhe,overwrite=True)
-		
-		#
-		# make the cut and apply scale
-		#
-		x1=int(size/2. - size1/2.)
-		x2=int(size/2. + size1/2.)
-		y1=int(size/2. - size1/2.)
-		y2=int(size/2. + size1/2.)
-		
-		fim=fim[y1:y2,x1:x2]
-		
-		fim[np.isnan(fim)] = 0.0
-		transform = AsinhStretch() + PercentileInterval(99.9)
-		bfim = transform(fim)
-
-		try:
-			#
-			# produce and save the FC
-			#
-			fig=plt.figure(1, figsize=(12,6))
-			fig1=fig.add_subplot(121,aspect='equal')
-			
-			plt.imshow(bfim,cmap='gray_r',origin='lower')
-			c = Circle((size1/2., size1/2.), 1./pix, edgecolor='k', lw=2,facecolor='none')
-			fig1.add_patch(c)
-			c = Circle((size1/2., size1/2.), 1./pix, edgecolor='yellow', facecolor='none')
-			fig1.add_patch(c)
-			txta=fig.text(0.14,0.8,name,fontsize=23,color='yellow')
-			txta.set_path_effects([PathEffects.withStroke(linewidth=2, foreground='k')])
-			txtb=fig.text(0.32,0.8,'Pan-STARRS',fontsize=23,color='yellow')
-			txtb.set_path_effects([PathEffects.withStroke(linewidth=2, foreground='k')])
-			
-			fig1.add_patch(FancyArrowPatch((size1-10/0.25-10,30),(size1-10,30),arrowstyle='-',color='k',linewidth=3.5))
-			fig1.add_patch(FancyArrowPatch((size1-10/0.25-10,30),(size1-10,30),arrowstyle='-',color='yellow',linewidth=2.0))
-
-			txtc=fig.text(0.44,0.16,'10"',fontsize=20,color='yellow')
-			txtc.set_path_effects([PathEffects.withStroke(linewidth=2, foreground='k')])
-			
-			plt.gca().xaxis.set_major_locator(plt.NullLocator())
-			plt.gca().yaxis.set_major_locator(plt.NullLocator())
-			
-			fname=name+'_panstarrs.png'
-			
-			
-			#
-			# get colour image
-			#
-			url = geturl(ra1,dec1,size=size1,filters='grz',output_size=None,format='png',color=True)
-			r = requests.get(url)
-			
-			im = Image.open(BytesIO(r.content))
-				
-			figA1=fig.add_subplot(122,aspect='equal')
-			
-			plt.imshow(im)
-			c = Circle((size1/2., size1/2.), 1./pix, lw=2, edgecolor='k', facecolor='none')
-			figA1.add_patch(c)
-			c = Circle((size1/2., size1/2.), 1./pix, edgecolor='yellow', facecolor='none')
-			figA1.add_patch(c)
-			fname=name+'_pan_'+'color_grz.png'
-			
-			plt.gca().xaxis.set_major_locator(plt.NullLocator())
-			plt.gca().yaxis.set_major_locator(plt.NullLocator())
-			plt.subplots_adjust(wspace=0.1)
-			
-			plt.savefig(fol+'/'+name+'/'+fname,dpi=120,format='PNG')
-			fig.clear()
-			
-			return fname
-			
-		except Exception as e:
-			print(str(e))
+		if not fitsurl:	#no image returned, not in the field
+			print('\t... Image not available')
 			return -99
+		else:
+			fh = fits.open(fitsurl[0])
+			fim = fh[0].data
+			fhe = fh[0].header
+			
+			#
+			# save fits image
+			#
+			with warnings.catch_warnings(): #to prevent the warnings in case the script is run several times and the files are rewritten
+				fits.writeto(fol+'/'+name+'/'+name+'_panstarrs_cutout_'+str(size)+'px_'+fil+'.fits', fim, fhe,overwrite=True)
+			
+			#
+			# make the cut and apply scale
+			#
+			x1=int(size/2. - size1/2.)
+			x2=int(size/2. + size1/2.)
+			y1=int(size/2. - size1/2.)
+			y2=int(size/2. + size1/2.)
+			
+			fim=fim[y1:y2,x1:x2]
+			
+			fim[np.isnan(fim)] = 0.0
+			transform = AsinhStretch() + PercentileInterval(99.9)
+			bfim = transform(fim)
+
+			try:
+				#
+				# produce and save the FC
+				#
+				fig=plt.figure(1, figsize=(12,6))
+				fig1=fig.add_subplot(121,aspect='equal')
+				
+				plt.imshow(bfim,cmap='gray_r',origin='lower')
+				c = Circle((size1/2., size1/2.), 1./pix, edgecolor='k', lw=2,facecolor='none')
+				fig1.add_patch(c)
+				c = Circle((size1/2., size1/2.), 1./pix, edgecolor='yellow', facecolor='none')
+				fig1.add_patch(c)
+				txta=fig.text(0.14,0.8,name,fontsize=23,color='yellow')
+				txta.set_path_effects([PathEffects.withStroke(linewidth=2, foreground='k')])
+				txtb=fig.text(0.32,0.8,'Pan-STARRS',fontsize=23,color='yellow')
+				txtb.set_path_effects([PathEffects.withStroke(linewidth=2, foreground='k')])
+				
+				fig1.add_patch(FancyArrowPatch((size1-10/0.25-10,30),(size1-10,30),arrowstyle='-',color='k',linewidth=3.5))
+				fig1.add_patch(FancyArrowPatch((size1-10/0.25-10,30),(size1-10,30),arrowstyle='-',color='yellow',linewidth=2.0))
+
+				txtc=fig.text(0.44,0.16,'10"',fontsize=20,color='yellow')
+				txtc.set_path_effects([PathEffects.withStroke(linewidth=2, foreground='k')])
+				
+				plt.gca().xaxis.set_major_locator(plt.NullLocator())
+				plt.gca().yaxis.set_major_locator(plt.NullLocator())
+				
+				fname=name+'_panstarrs.png'
+				
+				
+				#
+				# get colour image
+				#
+				url = geturl(ra1,dec1,size=size1,filters='grz',output_size=None,format='png',color=True)
+				r = requests.get(url)
+				
+				im = Image.open(BytesIO(r.content))
+					
+				figA1=fig.add_subplot(122,aspect='equal')
+				
+				plt.imshow(im)
+				c = Circle((size1/2., size1/2.), 1./pix, lw=2, edgecolor='k', facecolor='none')
+				figA1.add_patch(c)
+				c = Circle((size1/2., size1/2.), 1./pix, edgecolor='yellow', facecolor='none')
+				figA1.add_patch(c)
+				fname=name+'_pan_'+'color_grz.png'
+				
+				plt.gca().xaxis.set_major_locator(plt.NullLocator())
+				plt.gca().yaxis.set_major_locator(plt.NullLocator())
+				plt.subplots_adjust(wspace=0.1)
+				
+				plt.savefig(fol+'/'+name+'/'+fname,dpi=120,format='PNG')
+				fig.clear()
+				
+				return fname
+				
+			except Exception as e:
+				print(str(e))
+				return -99
+	except Exception as e1:
+		print(str(e1))
+		return -99
 
 '''
 Get a cutout of the region from DSS survey and create a simple FC
@@ -737,7 +742,7 @@ To be checked in case the image is not available in PanSTARRS
 '''
 def dsscut(name,ra,dec,fol):
 	
-	plt.rc('text', usetex=True)
+	plt.rc('text', usetex=False)
 	plt.rc('font', family='serif')
 
 	#
