@@ -905,8 +905,11 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol,mpp2):
 				doc.asis(' #table1 th {padding-top: 2px; padding-bottom: 2px; text-align: left; border-bottom: 1px solid black; color: black;}')
 				doc.asis(' #table1 tr:nth-child(even){background-color: #f2f2f2;}')
 				doc.asis(' #table1 td {padding-left: 10px; padding-right: 10px}')
-				doc.asis(' #table1 td:nth-child(4) {background: #FFDEAD}')
-				doc.asis(' #table1 td:nth-child(12) {background: #FFDEAD}')
+				doc.asis(' #table2 th {padding-top: 2px; padding-bottom: 2px; text-align: left; border-bottom: 1px solid black; color: black;}')
+				doc.asis(' #table2 tr:nth-child(even){background-color: #f2f2f2;}')
+				doc.asis(' #table2 td {padding-left: 10px; padding-right: 10px}')
+				doc.asis(' #table2 td:nth-child(4) {background: #FFDEAD}')
+				doc.asis(' #table2 td:nth-child(12) {background: #FFDEAD}')
 			doc.asis('\n\n')
 			doc.asis('<link rel=\"stylesheet\" href=\"http://aladin.u-strasbg.fr/AladinLite/api/v2/latest/aladin.min.css\" />')
 		# 
@@ -1046,7 +1049,7 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol,mpp2):
 							nn=len(wei[i]["sname"])
 							text('Sources found: '+str(nn))
 							
-							tabh=['Name','sep ["]','Link']
+							tabh=['Name','Sep ["]','RA','DEC','Link']
 							with tag('table', id='table1'):
 								with tag('tr'):
 									for ii in range(len(tabh)):
@@ -1058,6 +1061,10 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol,mpp2):
 											text(wei[i]["sname"][ii])
 										with tag('td'):
 											text(str(round(wei[i]["sdist"][ii],2)))
+										with tag('td'):
+											text(wei[i]["sra"][ii])
+										with tag('td'):
+											text(wei[i]["sdec"][ii])
 										with tag('td'):
 											with tag('a', href="https://wis-tns.weizmann.ac.il/"+wei[i]["slink"][ii], target="_blank"):
 												text('more')
@@ -1135,7 +1142,7 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol,mpp2):
 							doc.asis('</br>')
 							doc.asis('</br>')
 							text('Sources found: '+str(nn))
-							with tag('table', id='table1'):
+							with tag('table', id='table2'):
 								with tag('caption', style="caption-side:bottom; text-align:left;"):
 									text('*projected seperations [kpc] at the luminosity distances of (1) ' + str(ld[0]-ld[1]) + ', (2) ' + str(ld[0]) + ', (3) ' + str(ld[0] + ld[1])+' Mpc')
 								with tag('tr'):
@@ -1200,9 +1207,9 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol,mpp2):
 							text('The region around the source in r (5\'x5\' image saved to '+name[i]+'/'+name[i]+'_dss_red.fits):')
 						
 							doc.asis('</br>')
-						doc.asis('</br>')
+							doc.asis('</br>')
 						
-						doc.stag('img', src=name[i]+'/'+dss[i])
+							doc.stag('img', src=name[i]+'/'+dss[i])
 				doc.asis('\n\n')
 				doc.asis('</br></br>')
 				with tag('p'):
