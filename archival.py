@@ -89,7 +89,7 @@ def redshift(ld):
 	# even though we are at low z, let's use the real model
 	#
 	cosmo = FlatLambdaCDM(H0=67.3, Om0=0.315)
-	zz=np.linspace(0,0.1,100)
+	zz=np.linspace(0,0.5,100)
 	ldd=cosmo.luminosity_distance(zz)
 	f=interpolate.interp1d(ldd,zz)
 	
