@@ -36,9 +36,9 @@ The script is run from the folder with the input list as
 ```
 python /path_to_script/archival.py -i input_list.txt [-p] [-d]
 ```
-Input list is a list of lines (Name RA DEC [DATE]), such as 
-GWT1	03:55:50.1	-45:06:20.0	2019-01-06.70
-GWT2	04:11:34.02	-09:07:21.2
+Input list is a list of lines (Name RA DEC [DATE]), such as  
+GWT1	03:55:50.1	-45:06:20.0	2019-01-06.70  
+GWT2	62.89175	-9.122556
 
 DATE corresponds to the time of the detection of the source and is necessary for the search of coincident Solar system objects. An example of the input file is included.
 

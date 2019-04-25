@@ -82,6 +82,34 @@ def transCoord(ra,dec):
 	return rac, decc
 
 '''
+Degrees to sexagesimal
+'''
+def transCoord2(ra,dec):
+	ra = float(ra)/15.
+	ra1 = int(float(ra))
+	ra2 = int((float(ra) - float(ra1))*60)
+	ra3 = round((float((float(ra) - float(ra1))*60) - float(ra2))*60,3)
+	dec1 = int(float(dec))
+	if (dec1 < 0):
+		dec2 = int((float(dec1) - float(dec))*60)
+		dec3 = round((float((float(dec1) - float(dec))*60) - float(dec2))*60,3)
+	else:
+		dec2 = int((float(dec) - float(dec1))*60)
+		dec3 = round((float((float(dec) - float(dec1))*60) - float(dec2))*60,3)
+		
+	return str(ra1)+":"+str(ra2)+":"+str(ra3), str(dec1)+":"+str(dec2)+":"+str(dec3)
+
+'''
+Check what format are the input coordinates
+'''
+def checkCoordinates(ra,dec):
+	if ':' in ra:
+		return ra, dec
+	else:
+		print('Change to sexagesimal coordinates...')
+		return transCoord2(ra,dec)
+
+'''
 Get redshift from luminosity distance
 '''
 def redshift(ld):
@@ -1325,6 +1353,7 @@ def main():
 			os.mkdir(fol+'/'+lin[0])
 		nam.append(lin[0])
 		print(lin[0])
+		lin[1], lin[2] = checkCoordinates(lin[1],lin[2])
 		print('\tVisibility')
 		vis.append(visibility(lin[0],lin[1],lin[2],fol))
 		print('\tExtinction')
