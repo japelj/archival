@@ -35,6 +35,10 @@ PAR6:15
 #
 PAR7:100
 #
+# radius [in arcsec] in which to search in the Lasair page
+#
+PARA:5
+#
 # The name of the output html summary file
 #
 PAR8:summary.html

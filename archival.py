@@ -25,20 +25,7 @@ date is necessary for the search of coincident Solar system objects.
 -d: luminosity distance and error in Mpc (eg. -d 80 20)
 
 Updates:
-07. 02. 2019
-		- embed Aladin Lite, ecliptic coords
-
-05. 02. 2019
-		- fix several bugs, TNS parsing
-
-11. 01. 2019
-		- DSS, terminal output
-
-10. 01. 2019
-		- update glade, web design
-
-16. 12. 2018
-		- script written
+	see github page
 '''
 
 from optparse import OptionParser
@@ -162,6 +149,8 @@ def readparfile(pat):
 			pard['web']=line[5:]
 		if line[:4]=='PAR9':
 			pard['fol']=line[5:]
+		if line[:4]=='PARA':
+			pard['radL']=line[5:]
 	
 	return pard
 
@@ -471,6 +460,63 @@ def weizmann(name,ra,dec,fol,rad,datestart):
 			print('\t... Number of sources: 0')
 
 		return tabb
+
+'''
+Query Lasair
+'''
+def lasair(name,ra,dec,fol,rad):
+	pagea = requests.get('https://lasair.roe.ac.uk/conesearch/')
+	if pagea.status_code is not 200:
+		print('error: Page not available.')
+		return -99
+	else:
+		url='https://lasair.roe.ac.uk/conesearch/'
+		payload = {'cone':str(ra)+', '+str(dec)+','+str(rad)}
+		r = requests.post(url, data=payload)
+		#
+		# get an idea on how many objects there is in the cone
+		#
+		try:
+			i=0
+			for lines in r.iter_lines():
+				line=lines.decode("utf-8")
+				if line[:13]=='RA,Dec,radius':
+					pos1=line.find('<br/>')+5
+					pos2=line.find('objects')
+					nobj=int(line[pos1:pos2])
+				
+				if line=='<ul>':
+					num1=i
+				if line=='</ul>':
+					num2=i
+				
+				i += 1
+			
+			print('\t...Number of sources:', nobj)
+			
+			tabb={"sname":[],"slink":[]}
+			if nobj==0:
+				print('Notning more to be done.')
+			else:
+				i=0
+				tab=[]
+				for lines in r.iter_lines():
+					line=lines.decode("utf-8")
+					if num1 < i < num2:
+						if line[:4]=='<li>':
+							pos1=[m.start() for m in re.finditer('>', line)]
+							link=line[12:pos1[1]]
+							linka=link.split('/')
+							nam=linka[-1]
+							tabb["sname"].append(nam)
+							tabb["slink"].append('https://lasair.roe.ac.uk/'+link)
+
+					i += 1
+			return tabb
+		
+		except:
+			return -99
+
 
 '''
 Query for minor planets
@@ -913,7 +959,7 @@ def makealadin(num,pan,fol):
 '''
 Create an html summary file. 
 '''
-def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol,mpp2):
+def makehtml(name,parin,vis,ext,sim,wei,las,mpp,gla,ld,pan,dss,add,fol,mpp2):
 	
 	n=len(name)
 	
@@ -1101,6 +1147,43 @@ def makehtml(name,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol,mpp2):
 										with tag('td'):
 											with tag('a', href="https://wis-tns.weizmann.ac.il/"+wei[i]["slink"][ii], target="_blank"):
 												text('more')
+
+				#
+				# Lasair query
+				#
+				doc.asis('\n\n')
+				doc.asis('</br></br>')
+				with tag('p'):
+					with tag('b', style='border-top: 1px solid; border-bottom: 1px solid'):
+						text('Lasair (')
+						with tag('a', href="https://lasair.roe.ac.uk/", target="_blank"):
+									text('link')
+						doc.asis(')</br></br>')
+					if las[i] == -99:
+						text('Page not available and/or error in parsing.')
+					else:
+						text('Search radius: '+ str(parin[7]) + ' arcsec')
+						doc.asis('</br>')
+						doc.asis('</br>')
+						if not las[i]["sname"]:
+							text('Sources found: 0')
+						else:
+							nn=len(las[i]["sname"])
+							text('Sources found: '+str(nn))
+							
+							tabh=['Name','Link']
+							with tag('table', id='table1'):
+								with tag('tr'):
+									for ii in range(len(tabh)):
+										with tag('th'):
+											text(tabh[ii])
+								for ii in range(nn):
+									with tag('tr'):
+										with tag('td'):
+											text(las[i]["sname"][ii])
+										with tag('td'):
+											with tag('a', href=las[i]["slink"][ii], target="_blank"):
+												text('link')
 
 				#
 				# Minor planets querry
@@ -1303,6 +1386,7 @@ def main():
 		magM=parin['magM']
 		radG=parin['radG']
 		offG=parin['offG']
+		radL=parin['radL']
 		webname=parin['web']
 		fol=parin['fol']
 	else:
@@ -1313,6 +1397,7 @@ def main():
 		magM=24.0 # limiting V magnitude of minor planets
 		radG=15 # [arcsec] radius in which potential host galaxies are searched for in GLADE, if lumd unknown
 		offG=100 # [kpc] upper limit for the physical offset of the source and a galaxy in GLADE, if lumd known
+		radL=5 # [arcsec] radius in which to search for transients on Lasair webpage
 		webname='summary.html'
 		fol='output'
 
@@ -1344,6 +1429,7 @@ def main():
 	mpp2=[]
 	add=[]
 	dss=[]
+	las=[]
 	for lines in inp:
 		if lines=='\n':
 			continue
@@ -1362,6 +1448,8 @@ def main():
 		sim.append(simbad(lin[0],lin[1],lin[2],fol,rad))
 		print('\tTNS')
 		wei.append(weizmann(lin[0],lin[1],lin[2],fol,radW,datestart))
+		print('\tLasair')
+		las.append(lasair(lin[0],lin[1],lin[2],fol,radL))
 		print('\tGLADE')
 		gla.append(glade(lin[0],lin[1],lin[2],fol,radG,ld,offG))
 		print('\tMinor planets')
@@ -1386,9 +1474,9 @@ def main():
 	
 	print('\nBuilding an html summary page: ', fol+'/'+webname)
 	
-	parin=[rad,radW,datestart,radM,magM,radG,offG,webname]
+	parin=[rad,radW,datestart,radM,magM,radG,offG,radL,webname]
 	alad=makealadin(len(nam),pan,fol)
-	makehtml(nam,parin,vis,ext,sim,wei,mpp,gla,ld,pan,dss,add,fol,mpp2)
+	makehtml(nam,parin,vis,ext,sim,wei,las,mpp,gla,ld,pan,dss,add,fol,mpp2)
 	
 	print('\nScript completed.\n')
 
